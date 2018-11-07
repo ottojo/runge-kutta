@@ -13,7 +13,7 @@ var deltaT float64 = 3600 * 24 * 1
 
 type Planet struct {
 	position map[float64]Vector
-	velocity Vector
+	velocity map[float64]Vector
 	mass     float64
 	name     string
 }
@@ -39,62 +39,86 @@ func main() {
 		position := make(map[float64]Vector)
 		position[0] = Vector{r_x, r_y, r_z}
 
+		velocity := make(map[float64]Vector)
+		velocity[0] = Vector{v_x, v_y, v_z}
+
 		Sonnensystem = append(Sonnensystem, Planet{name: name,
 			mass:     mass,
 			position: position,
-			velocity: Vector{v_x, v_y, v_z}})
+			velocity: velocity})
 	}
 	fmt.Println(Sonnensystem[3].position[t(0)])
 
 	i := 1
 	var data []byte
 
-	for (i < 50000) {
+	for i < 365*10 {
 		for _, p := range Sonnensystem {
 			p.calcTimestep(i)
 		}
-		fmt.Println(Sonnensystem[3].velocity)
-		data = append(data, []byte(fmt.Sprintf("%f, %f, %f\n",
-			Sonnensystem[3].position[t(i)].X,
-			Sonnensystem[3].position[t(i)].Y,
-			Sonnensystem[3].position[t(i)].Z))...)
+		//fmt.Println(Sonnensystem[3].velocity)
+
+		for _, planet := range Sonnensystem {
+			data = append(data, []byte(fmt.Sprintf("%f, %f, %f,",
+				planet.position[t(i)].X,
+				planet.position[t(i)].Y,
+				planet.position[t(i)].Z))...)
+		}
+		data[len(data)-1] = '\n'
 
 		i++
 	}
 	ioutil.WriteFile("sonnensystem.csv", data, 0644)
 }
 
-func (p *Planet) phi(t float64, r Vector) (velocity Vector) {
-	var impulseChange Vector
+func (p *Planet) a(r Vector, newTimeStep int) Vector {
+	var vPunktM Vector
 	for _, otherPlanet := range Sonnensystem {
 		if otherPlanet.name != p.name {
-			f := F(p.mass, otherPlanet.mass, r, otherPlanet.position[lastValidTime(t)])
-			impulseChange = impulseChange.plus(f)
+			f := F(p.mass, otherPlanet.mass, r, otherPlanet.position[t(newTimeStep-1)])
+			vPunktM = vPunktM.plus(f)
 		}
 	}
-	//a := impulseChange.scale(deltaT / p.mass)
-	//fmt.Println(a)
-	velocity = impulseChange.scale(deltaT / p.mass)
-	return
-}
-
-func (p *Planet) k(i int) (k1, k2, k3, k4 Vector) {
-	k1 = p.phi(t(i), p.position[t(i)])
-	k2 = p.phi(t(i)+deltaT/2, p.position[t(i)].plus(k1.scale(deltaT/2)))
-	k3 = p.phi(t(i)+deltaT/2, p.position[t(i)].plus(k2.scale(deltaT/2)))
-	k4 = p.phi(t(i)+deltaT/2, p.position[t(i)].plus(k3.scale(deltaT)))
-	return
+	return vPunktM.scale(1 / p.mass)
 }
 
 func (p *Planet) calcTimestep(i int) {
-	//fmt.Printf("calculating step %d for %s\n", i, p.name)
-	k1, k2, k3, k4 := p.k(i - 1);
-	positionChange := k1.scale(deltaT / 6).
-		plus(k2.scale(deltaT / 3)).
-		plus(k3.scale(deltaT / 3)).
-		plus(k4.scale(deltaT / 6))
-	p.velocity = (positionChange)
-	p.position[t(i)] = p.position[t(i-1)].plus(positionChange.scale(deltaT))
+
+	// Werte am Anfang des Zeitschritts
+	r1 := p.position[t(i-1)]
+	v1 := p.velocity[t(i-1)]
+	a1 := p.a(r1, i)
+
+	// Werte in der Mitte des Zeitschritts, basierend auf Anfangswerten
+	r2 := r1.plus(v1.scale(deltaT / 2))
+	v2 := v1.plus(a1.scale(deltaT / 2))
+	a2 := p.a(r2, i)
+
+	// Werte in der Mitte des Zeitschritts, basierend auf soeben berechneten Werten
+	r3 := r1.plus(v2.scale(deltaT / 2))
+	v3 := v1.plus(a2.scale(deltaT / 2))
+	a3 := p.a(r3, i)
+
+	// Werte am Ende des Zeitschritts, basierend auf soeben berechneten Wertem
+	r4 := r1.plus(v3.scale(deltaT))
+	v4 := v1.plus(a3.scale(deltaT))
+	a4 := p.a(r4, i)
+
+	// Mittelwerte nutzen, um neue Position zu bestimmen
+	rEnde := r1.plus(
+		v1.plus(v2.scale(2)).
+			plus(v3.scale(2)).
+			plus(v4).
+			scale(deltaT / 6))
+
+	vEnde := v1.plus(
+		a1.plus(a2.scale(2)).
+			plus(a3.scale(2)).
+			plus(a4).
+			scale(deltaT / 6))
+
+	p.position[t(i)] = rEnde
+	p.velocity[t(i)] = vEnde
 }
 
 // Kraft von 2 auf 1
