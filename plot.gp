@@ -4,7 +4,7 @@ set term pngcairo
 set terminal pngcairo size 1920,1080
 set view equal xyz
 set view 85,85,1,1
-do for [ii=1:framenumber] {
+do for [ii=startindex:endindex] {
     set view 85,85,2,2
     set output sprintf("animation/%04d.png",ii)
     splot [-3e9:3e9] \

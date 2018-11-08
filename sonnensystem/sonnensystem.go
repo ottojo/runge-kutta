@@ -9,17 +9,19 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 var Sonnensystem []Planet
 var deltaT float64 = 3600 * 24 * 5
 
 var realTimeYears = flag.Float64("realTime", 1, "Time to simulate in years")
-var simulationTimeSeconds = flag.Float64("simulationDuration", 30, "Simulation duration in seconds")
-var frameRate = flag.Int("fps", 30, "Number of frames per second")
+var simulationTimeSeconds = flag.Float64("simulationDuration", 10, "Simulation duration in seconds")
+var frameRate = flag.Int("fps", 60, "Number of frames per second")
 var outputFileName = flag.String("o", "sonnensystem.csv", "Output file name")
-var render = flag.Bool("r", false, "Render animation using gnuplot and ffmpeg")
+var render = flag.Bool("r", true, "Render animation using gnuplot and ffmpeg")
 var inputFileName = flag.String("i", "Sonnensystem.dat", "Input file name")
+var gnuplotThreads = flag.Int("threads", 10, "Number of gnuplot instances to start")
 
 type Planet struct {
 	position map[float64]Vector
@@ -84,13 +86,30 @@ func main() {
 	ioutil.WriteFile(*outputFileName, data, 0644)
 	if *render {
 		exec.Command("mkdir", "animation").Run()
-		gnuplot := exec.Command("gnuplot",
-			"-e", "filename='"+*outputFileName+"'",
-			"-e", "framenumber='"+strconv.Itoa(numberOfFrames)+"'",
-			"plot.gp")
-		gnuplot.Stderr = os.Stderr
-		gnuplot.Stdout = os.Stdout
-		gnuplot.Run()
+
+		var wg sync.WaitGroup
+		var imagesPerThread = numberOfFrames / *gnuplotThreads
+
+		for i := 0; i < *gnuplotThreads; i++ {
+			s := i*imagesPerThread + 1
+			e := s + imagesPerThread - 1
+			wg.Add(1)
+			go func(s, e int) {
+				gnuplot := exec.Command("gnuplot",
+					"-e", "filename='"+*outputFileName+"'",
+					"-e", "startindex='"+strconv.Itoa(s)+"'",
+					"-e", "endindex='"+strconv.Itoa(e)+"'",
+					"plot.gp")
+				gnuplot.Stderr = os.Stderr
+				gnuplot.Stdout = os.Stdout
+				fmt.Printf("Starting gnuplot instance for images %d to %d\n", s, e)
+				gnuplot.Run()
+				fmt.Printf("Gnuplot instance for %d to %d finished.\n", s, e)
+				wg.Done()
+			}(s, e)
+		}
+		wg.Wait()
+
 		ffmpeg := exec.Command("ffmpeg", "-y",
 			"-f", "image2",
 			"-framerate", strconv.Itoa(*frameRate),
