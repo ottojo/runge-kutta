@@ -99,7 +99,7 @@ func main() {
 		ffmpeg.Stderr = os.Stderr
 		ffmpeg.Stdout = os.Stdout
 		ffmpeg.Run()
-	}s
+	}
 }
 
 func (p *Planet) a(r Vector, newTimeStep int) Vector {
