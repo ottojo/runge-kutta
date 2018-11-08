@@ -1,15 +1,25 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"math"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 )
 
 var Sonnensystem []Planet
-var deltaT float64 = 3600 * 24 * 1
+var deltaT float64 = 3600 * 24 * 5
+
+var realTimeYears = flag.Float64("realTime", 1, "Time to simulate in years")
+var simulationTimeSeconds = flag.Float64("simulationDuration", 30, "Simulation duration in seconds")
+var frameRate = flag.Int("fps", 30, "Number of frames per second")
+var outputFileName = flag.String("o", "sonnensystem.csv", "Output file name")
+var render = flag.Bool("r", false, "Render animation using gnuplot and ffmpeg")
+var inputFileName = flag.String("i", "Sonnensystem.dat", "Input file name")
 
 type Planet struct {
 	position map[float64]Vector
@@ -19,11 +29,16 @@ type Planet struct {
 }
 
 func main() {
-	planetdata, err := ioutil.ReadFile("Sonnensystem.dat")
+	flag.Parse()
+	planetdata, err := ioutil.ReadFile(*inputFileName)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+
+	numberOfFrames := int(float64(*frameRate) * *simulationTimeSeconds)
+	deltaT = *realTimeYears * 365 * 24 * 3600 / float64(numberOfFrames)
+
 	planets := strings.Split(string(planetdata), "\r\n")
 	for _, planet := range planets {
 		data := strings.Split(planet, "\t")
@@ -52,11 +67,10 @@ func main() {
 	i := 1
 	var data []byte
 
-	for i < 365*10 {
+	for i < numberOfFrames {
 		for _, p := range Sonnensystem {
 			p.calcTimestep(i)
 		}
-		//fmt.Println(Sonnensystem[3].velocity)
 
 		for _, planet := range Sonnensystem {
 			data = append(data, []byte(fmt.Sprintf("%f, %f, %f,",
@@ -65,10 +79,27 @@ func main() {
 				planet.position[t(i)].Z))...)
 		}
 		data[len(data)-1] = '\n'
-
 		i++
 	}
-	ioutil.WriteFile("sonnensystem.csv", data, 0644)
+	ioutil.WriteFile(*outputFileName, data, 0644)
+	if *render {
+		exec.Command("mkdir", "animation").Run()
+		gnuplot := exec.Command("gnuplot",
+			"-e", "filename='"+*outputFileName+"'",
+			"-e", "framenumber='"+strconv.Itoa(numberOfFrames)+"'",
+			"plot.gp")
+		gnuplot.Stderr = os.Stderr
+		gnuplot.Stdout = os.Stdout
+		gnuplot.Run()
+		ffmpeg := exec.Command("ffmpeg",
+			"-f", "image2",
+			"-framerate", strconv.Itoa(*frameRate),
+			"-i", "animation/%04d.png",
+			*outputFileName+".mp4")
+		ffmpeg.Stderr = os.Stderr
+		ffmpeg.Stdout = os.Stdout
+		ffmpeg.Run()
+	}s
 }
 
 func (p *Planet) a(r Vector, newTimeStep int) Vector {
