@@ -62,7 +62,6 @@ func main() {
 			position: position,
 			velocity: velocity})
 	}
-	fmt.Println(Sonnensystem[3].position[t(0)])
 
 	i := 1
 	var data []byte
@@ -79,6 +78,7 @@ func main() {
 				planet.position[t(i)].Z))...)
 		}
 		data[len(data)-1] = '\n'
+		fmt.Println(i)
 		i++
 	}
 	ioutil.WriteFile(*outputFileName, data, 0644)
@@ -91,7 +91,7 @@ func main() {
 		gnuplot.Stderr = os.Stderr
 		gnuplot.Stdout = os.Stdout
 		gnuplot.Run()
-		ffmpeg := exec.Command("ffmpeg",
+		ffmpeg := exec.Command("ffmpeg", "-y",
 			"-f", "image2",
 			"-framerate", strconv.Itoa(*frameRate),
 			"-i", "animation/%04d.png",
