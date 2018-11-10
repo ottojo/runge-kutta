@@ -16,10 +16,10 @@ var Sonnensystem []Planet
 var deltaT float64 = 3600 * 24 * 5
 
 var realTimeYears = flag.Float64("realTime", 1, "Time to simulate in years")
-var simulationTimeSeconds = flag.Float64("simulationDuration", 10, "Simulation duration in seconds")
-var frameRate = flag.Int("fps", 60, "Number of frames per second")
+var simulationTimeSeconds = flag.Float64("simulationDuration", 120, "Simulation duration in seconds")
+var frameRate = flag.Int("fps", 30, "Number of frames per second")
 var outputFileName = flag.String("o", "sonnensystem.csv", "Output file name")
-var render = flag.Bool("r", true, "Render animation using gnuplot and ffmpeg")
+var render = flag.Bool("r", false, "Render animation using gnuplot and ffmpeg")
 var inputFileName = flag.String("i", "Sonnensystem.dat", "Input file name")
 var gnuplotThreads = flag.Int("threads", 10, "Number of gnuplot instances to start")
 
@@ -113,7 +113,7 @@ func main() {
 		ffmpeg := exec.Command("ffmpeg", "-y",
 			"-f", "image2",
 			"-framerate", strconv.Itoa(*frameRate),
-			"-i", "animation/%04d.png",
+			"-i", "animation/%06d.png",
 			*outputFileName+".mp4")
 		ffmpeg.Stderr = os.Stderr
 		ffmpeg.Stdout = os.Stdout
