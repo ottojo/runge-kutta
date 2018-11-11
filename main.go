@@ -15,8 +15,12 @@ var deltaT = flag.Float64("t", .001, "Time Delta")
 var iterations = flag.Int("i", 1000, "Number of iterations")
 
 func main() {
+	// Commandline Parameter
 	flag.Parse()
+
+	// Anfangswerte
 	y[t_0] = y_0
+
 	for i := 1; i < *iterations; i++ {
 		calcY(i)
 		saveValues(y)
@@ -25,9 +29,11 @@ func main() {
 
 // y'(t)=phi(t, y(t))
 func phi(t, y_t float64) float64 {
+	// Beispielfunktion phi(t, y(t)) = y/t
 	return y_t / t
 }
 
+// Speichern der berechneten Werte
 func saveValues(v map[float64]float64) {
 	var data []byte
 	for t, y := range v {
